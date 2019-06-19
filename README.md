@@ -1,6 +1,6 @@
 # thesis-watcher
 Watches my thesis and calls `make` when files are changed.
 
-watching from a different current directory use: `cargo run --release --manifest-path <path/to/Cargo.toml>`.
+Watching from a different current directory use: `cargo run --release --manifest-path <path/to/Cargo.toml> -- <extensions: tex bib>`.
 
-watching a different directory use: `cargo run --release -- <path/to/different/directory>`.
+Watching a different directory use: `cargo run --release -- -w <path/to/different/directory> <extensions: tex bib>`.
