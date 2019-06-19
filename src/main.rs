@@ -2,21 +2,29 @@ extern crate structopt;
 
 use crate::structopt::StructOpt;
 use colored::*;
+use lazy_static::lazy_static;
 use notify::{watcher, DebouncedEvent::*, RecursiveMode, Watcher};
+use regex::bytes::Regex;
 use std::env::current_dir;
 use std::ffi::OsStr;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
+use std::process::Command;
 use std::sync::mpsc::channel;
 use std::thread::sleep;
 use std::time::Duration;
 
 const DEBOUNCE_TIME: Duration = Duration::from_secs(10);
 
+lazy_static! {
+    static ref REGEX: Regex = Regex::new(r"rerunfilecheck").expect("regex error");
+}
+
 #[derive(StructOpt, Debug)]
 #[structopt(name = "thesis watcher")]
 struct Opt {
+    #[structopt(short = "r", default_value = "3")]
+    rerunfilecheck: u8,
     #[structopt(short = "w", parse(from_os_str))]
     watch: Option<PathBuf>,
     extensions: Vec<String>,
@@ -61,14 +69,7 @@ fn main() -> notify::Result<()> {
                     println!("{} {:?}", "[DROP_EXT:]".yellow(), event);
                     continue;
                 }
-                let output = run_make(&path)?;
-                if !output.status.success() {
-                    println!("{} {:?}", "[MAKE_ERROR:]".red(), output.status.code());
-                } else {
-                    println!("{}", "[MAKE_OK:]".green());
-                }
-                io::stdout().lock().write_all(&output.stdout)?;
-                io::stderr().lock().write_all(&output.stdout)?;
+                run_make(&path, opt.rerunfilecheck)?;
                 sleep(DEBOUNCE_TIME);
                 for event in rx.try_iter() {
                     println!("{} {:?}", "[DROP_DRAIN:]".yellow(), event);
@@ -79,8 +80,20 @@ fn main() -> notify::Result<()> {
     }
 }
 
-fn run_make(path: &Path) -> io::Result<Output> {
-    Command::new("make").current_dir(path).output()
+fn run_make(path: &Path, rerunfilecheck: u8) -> io::Result<()> {
+    let output = Command::new("make").current_dir(path).output()?;
+    if !output.status.success() {
+        println!("{} {:?}", "[MAKE_ERROR:]".red(), output.status.code());
+    } else {
+        println!("{}", "[MAKE_OK:]".green());
+    }
+    io::stdout().lock().write_all(&output.stdout)?;
+    io::stderr().lock().write_all(&output.stderr)?;
+    if rerunfilecheck != 0 && REGEX.is_match(&output.stdout) {
+        run_make(path, rerunfilecheck - 1)
+    } else {
+        Ok(())
+    }
 }
 
 fn match_ext(extensions: &[String], path: &Path) -> bool {
