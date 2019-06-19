@@ -9,8 +9,8 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::sync::mpsc::channel;
-use std::time::Duration;
 use std::thread::sleep;
+use std::time::Duration;
 
 const DEBOUNCE_TIME: Duration = Duration::from_secs(10);
 
@@ -24,7 +24,7 @@ struct Opt {
 
 fn main() -> notify::Result<()> {
     let opt = Opt::from_args();
-    let extensions = if opt.extensions.len() == 0 {
+    let extensions = if opt.extensions.is_empty() {
         None
     } else {
         Some(opt.extensions)
